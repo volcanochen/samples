@@ -1,6 +1,9 @@
 package sample.thread.multithread;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+
 
 import junit.framework.Test;
 import junit.framework.TestCase;
@@ -66,16 +69,27 @@ public class AppTest extends TestCase {
 
     public void testThreadSafety() {
 
+        List<MyThread> list = new ArrayList<MyThread>();
         MyThread m1 = new MyThread("Leo");
         MyThread m2 = new MyThread("CR7");
         m1.start();
         m2.start();
 
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        list .add(m1);
+        list .add(m2);
+        
+        try  
+        {  
+            for (MyThread my : list)  
+            {  
+                my.join();  
+            }  
+        }  
+        catch (InterruptedException e)  
+        {  
+            e.printStackTrace();  
+        }  
+
         System.out.println("MAIN " + " end");
     }
 }
