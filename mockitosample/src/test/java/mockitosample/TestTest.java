@@ -15,13 +15,12 @@ public class TestTest {
     public void argumentCaptoraOnceTest() {  
         List mock = mock(List.class);  
         mock.add("John");  
-
+        
         ArgumentCaptor argument = ArgumentCaptor.forClass(String.class);  
-          
+
         verify(mock).add(argument.capture());  
         assertEquals("John", argument.getValue());  
-        
-  
+
     }  
     
     @Test  
@@ -39,4 +38,7 @@ public class TestTest {
         assertEquals("Jim", argument2.getValue());  
         assertArrayEquals(new Object[]{"Brian","Jim"},argument2.getAllValues().toArray());  
     }  
+    
+    
+    
 }
