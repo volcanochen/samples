@@ -20,11 +20,12 @@ class DatasTest(unittest.TestCase):
     
     def test_Datas_mainflow(self):
         a= Datas()
-        file =  r"C:\+work\++ 2017 ++\NGCVC\analysis\VF3CU9HP0EY156880\VF3CU9HP0EY156880.trip_0.csv"
         folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\VF3CU9HP0EY156880"
         a.initFromFolder(folder)
         a.analyseAll()
-        a.cvsExport(r"C:\+work\++ 2017 ++\NGCVC\analysis\VF3CU9HP0EY156880\total.export.acc.csv")
+        a.cvsExportAcc(r"C:\+work\++ 2017 ++\NGCVC\analysis\VF3CU9HP0EY156880\total.export.table_acc.csv")
+        a.cvsExportAccacc(r"C:\+work\++ 2017 ++\NGCVC\analysis\VF3CU9HP0EY156880\total.export.table_accacc.csv")
+        
         
     @unittest.skip("demonstrating skipping")
     def test_Data_trip(self):
