@@ -39,7 +39,7 @@ class DatasTest(unittest.TestCase):
         assert a.mean == 2
         assert a.var == 2/float(3)
         
-    
+    #@unittest.skip("demonstrating skipping")  
     def test_NOT_A_TEST(self):
         a= Datas()
         folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\VF3CU9HP0EY156880"
@@ -51,6 +51,7 @@ class DatasTest(unittest.TestCase):
         a.cvsExportAcc          (r"%s\total.export.table_acc.csv"%folder)
         a.cvsExportAccacc       (r"%s\total.export.table_accacc.csv"%folder)
         a.cvsExportHeading      (r"%s\total.export.table_heading.csv"%folder)
+    
     @unittest.skip("demonstrating skipping")      
     def test_Datas_mainflow(self):
         a= Datas()
@@ -59,10 +60,10 @@ class DatasTest(unittest.TestCase):
         a.initFromFolder(folder)
         a.analyseAll()
         a.show()
-        a.cvsExportIdleMax      (r"%s\total.export.table_idle.csv"%folder)
-        #a.cvsExportAcc          (r"%s\total.export.table_acc.csv"%folder)
+        #a.cvsExportIdleMax      (r"%s\total.export.table_idle.csv"%folder)
+        a.cvsExportAcc          (r"%s\total.export.table_acc.csv"%folder)
         #a.cvsExportAccacc       (r"%s\total.export.table_accacc.csv"%folder)
-        a.cvsExportHeading      (r"%s\total.export.table_heading.csv"%folder)
+        #a.cvsExportHeading      (r"%s\total.export.table_heading.csv"%folder)
 
 
 

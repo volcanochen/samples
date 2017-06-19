@@ -120,9 +120,10 @@ class Datas:
         for i in sortedDictValue(an_segs_title):
             line += "%sp,"%i
             
-        line += "%s,"%"min"
+        line += "%s,"%"mean"
         line += "%s,"%"var"
         line += "%s,"%an_midD_title
+        line += "%s,"%"VSP"
         outputfile.write(line+ "\n")
         
         
@@ -145,6 +146,7 @@ class Datas:
                 line += "%f,"%self.cars[ca].trips[tr].acc_var.mean
                 line += "%f,"%self.cars[ca].trips[tr].acc_var.var
                 line += "%f,"%self.cars[ca].trips[tr].acc_midDist.midDistPr
+                line += "%f,"%self.cars[ca].trips[tr].vspMean
                 outputfile.write(line+ "\n")
    
         outputfile.close()
@@ -168,7 +170,7 @@ class Datas:
         for i in sortedDictValue(an_segs_title):
             line += "%sp,"%i
             
-        line += "%s,"%"min"
+        line += "%s,"%"mean"
         line += "%s,"%"var"
         line += "%s,"%an_midD_title
         outputfile.write(line+ "\n")
@@ -206,19 +208,27 @@ class Trip:
         self.accacc = None
         self.accacc_var = None
         self.accacc_midDist = None
+        self.heading_midDist = None
         self.idleCountMax = 0
+        self.vspMean = 0
         
     def show(self):
+        print(50*"=")
+        print(50*"=")
         self.tripInfo.show() 
+        print(">>>>> acc >>>>>")
         self.acc.show()
+        print(">>>>> accacc >>>>>")
+        self.accacc.show()
         self.heading_midDist.show()
         
         print("idle max : %d"%self.idleCountMax)
+        print("VSP mean : %f"%self.vspMean)
         
     def analyse(self):
         
         f = CSVFile(self.tripInfo.file) #per trip file
-        acclist, accacclist, headingList = f.readData()
+        acclist, accacclist, headingList, vspList = f.readData()
 
         # trip
         self.tripInfo.starttime = f.starttime
@@ -229,8 +239,7 @@ class Trip:
         
         #trip acc
         acc = DistributeMethod()
-        acc.an_seg_size = 0.5
-        
+        #acc.an_seg_size = 0.5
         acc.analyse(acclist)
         self.acc = acc
         
@@ -265,6 +274,9 @@ class Trip:
         self.heading_midDist = heading
         
         
+        #vsp
+        self.vspMean = np.mean(vspList)
+        
         
 class Car:
     def __init__(self, carId, file_dict):
@@ -294,6 +306,11 @@ class CSVFile:
         self.endtime = 0
         self.file = f
         self.idleCount = 0
+        
+        self.ifVSP = True
+        self.ifHeading = True
+        self.ifIdleTime = True
+        
     def calStartEndTime(self, mi, ma):
         if self.starttime == 0:
             self.starttime = mi
@@ -317,10 +334,11 @@ class CSVFile:
         
     def readData(self):
         print "processing %s"%self.file
+        
         accelerate = []
         acc_accelerate = []
-        
         dif_heading  = []
+        vsplist = []
         
         self.tsColumn = 3
         self.speedColumn = 23
@@ -367,6 +385,14 @@ class CSVFile:
                     accelerate.append (acc) 
                     
                     
+                    #calculate VSP
+                    if self.ifVSP :
+                        #speed -> mile per hour 
+                        s2 = speed2 * 0.44704 # m/s
+                        a2 = acc * 0.44704  # m/s^2
+                        vsp = (a2*1.1 + 0.132) * s2  +0.000302 * (s2 ** 3)
+                        vsplist.append(vsp)
+                    
                     if t2 - last_acc_ts == 1000:
                         acc_accelerate.append (acc - last_acc) 
                     else :
@@ -374,48 +400,51 @@ class CSVFile:
                     last_acc_ts = t2
                     last_acc = acc
                     
-                    if heading1 != 0 or heading2 != 0:
-                        
-                        heading_acc = self.headingDiff(heading1,heading2)
-                        #print "((%d -> %d) %d)"%(heading1,heading2, heading_acc)
-                        dif_heading.append(heading_acc)  
+                    #heading
+                    if self.ifHeading:
+                        if heading1 != 0 or heading2 != 0:
+                            
+                            heading_acc = self.headingDiff(heading1,heading2)
+                            #print "((%d -> %d) %d)"%(heading1,heading2, heading_acc)
+                            dif_heading.append(heading_acc)  
                     
             else:
                 print ("time diff error - acc %d @ %d" % (t2 - t1,  t1))
                 
-                
-            # ===========  rpm =============================
-            if  isValidData(df.loc[i][self.rpmColumn]):#rpm
-                ####### not considering ts diff > 5s ######
-                rpm = df.loc[i][self.rpmColumn]
-                #print ("set rpm %f" % rpm)
-                
-            #print "ts %d  rpm %f , speed %f" %(t1, rpm,speed1)
-            if rpm != 0 and speed1 == 0: # meet condition
-                if idleStartTs == 0 :
-                    #print ("start at %d" % t1)
-                    idleStartTs  = t1
-                else: # if started
-                    if t1 - last_idle_ts > 5000: #5 second
-                        print ("stop  at %d >5s" % t1)
-                        self.calMaxIdleCounter(last_idle_ts - idleStartTs)
+            
+            if self.ifIdleTime:
+                # ===========  rpm =============================
+                if  isValidData(df.loc[i][self.rpmColumn]):#rpm
+                    ####### not considering ts diff > 5s ######
+                    rpm = df.loc[i][self.rpmColumn]
+                    #print ("set rpm %f" % rpm)
+                    
+                #print "ts %d  rpm %f , speed %f" %(t1, rpm,speed1)
+                if rpm != 0 and speed1 == 0: # meet condition
+                    if idleStartTs == 0 :
+                        #print ("start at %d" % t1)
+                        idleStartTs  = t1
+                    else: # if started
+                        if t1 - last_idle_ts > 5000: #5 second
+                            print ("stop  at %d >5s" % t1)
+                            self.calMaxIdleCounter(last_idle_ts - idleStartTs)
+                            idleStartTs = 0
+                else: # end of idle
+                    if idleStartTs != 0: ## if started
+                        if t1 - last_idle_ts > 5000: #5 second
+                            stopTimeTs = last_idle_ts
+                            print ("stop  at rpm=0 or speed !=0, but at %d diff >5s" % t1)
+                        else:
+                            stopTimeTs = t1
+                        #print ("stop  at %d" % t1)
+                        self.calMaxIdleCounter(stopTimeTs - idleStartTs)
                         idleStartTs = 0
-            else: # end of idle
-                if idleStartTs != 0: ## if started
-                    if t1 - last_idle_ts > 5000: #5 second
-                        stopTimeTs = last_idle_ts
-                        print ("stop  at rpm=0 or speed !=0, but at %d diff >5s" % t1)
-                    else:
-                        stopTimeTs = t1
-                    #print ("stop  at %d" % t1)
-                    self.calMaxIdleCounter(stopTimeTs - idleStartTs)
-                    idleStartTs = 0
-
-            last_idle_ts = t1 
+    
+                last_idle_ts = t1 
             # ==============-==============================
 
         #print accelerate 
-        return accelerate, acc_accelerate, dif_heading
+        return accelerate, acc_accelerate, dif_heading, vsplist
     
 class TripInfo:
     def __init__(self, cardId , trip, f):
