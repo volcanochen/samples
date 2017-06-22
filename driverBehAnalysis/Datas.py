@@ -3,7 +3,8 @@ import re
 import csv
 import pandas as pd
 import numpy as np
-
+from compiler.ast import Pass
+from multiprocessing import Pool
 
 def sortedDictValue(adict):
     keys = adict.keys()
@@ -45,7 +46,25 @@ class Datas:
     def show(self):
         for i in self.cars:
             self.cars[i].show()
+
+    def analyseAll_parallel(self):
         
+        #files
+        files = []
+        for carId in self.cars:
+            for tripId in self.cars[carId].trips:
+                files.append(self.cars[carId].trips[tripId].tripInfo.file)
+                
+        p = Pool(5)
+        result = p.map(processTripFile, files)
+
+        for carId in self.cars:
+            for tripId in self.cars[carId].trips:
+                (t1, t2 ,e,d,c,t,d,t,u,n,o) = result.pop()
+                print t1, t2
+        
+        
+
     def analyseAll(self):
         for carId in self.cars:
             self.cars[carId].analyse()
@@ -57,6 +76,7 @@ class Datas:
         idDataTitle = "%s,%s,%s,%s" %("cardId", "tripId","startTime", "endTime")
         line += "%s,"%idDataTitle
         line += "%s,"%"idleMax"
+        line += "%s,"%"idleMax_score"
         outputfile.write(line+ "\n")
         
         
@@ -71,7 +91,8 @@ class Datas:
                 line += "%s,%s,%s,%s," %(cardid, tripid,starttime, endtime)
 
                 line += "%f,"%self.cars[ca].trips[tr].idleCountMax
-
+                line += "%f,"%self.cars[ca].trips[tr].score.idle
+                
                 outputfile.write(line+ "\n")
    
         outputfile.close()
@@ -82,7 +103,11 @@ class Datas:
         idDataTitle = "%s,%s,%s,%s" %("cardId", "tripId","startTime", "endTime")
         line += "%s,"%idDataTitle
         line += "%s,"%"headingPercentage"
+        line += "%s_%s,"%("headingPercentage","score")
+        
         outputfile.write(line+ "\n")
+        
+        
         
         
         for ca  in self.cars:  #{carid : Datas_car}
@@ -96,7 +121,7 @@ class Datas:
                 line += "%s,%s,%s,%s," %(cardid, tripid,starttime, endtime)
 
                 line += "%f,"%self.cars[ca].trips[tr].heading_midDist.midDistPr
-
+                line += "%f,"%self.cars[ca].trips[tr].score.heading_midDist
                 outputfile.write(line+ "\n")
    
         outputfile.close()  
@@ -122,8 +147,17 @@ class Datas:
             
         line += "%s,"%"mean"
         line += "%s,"%"var"
-        line += "%s,"%an_midD_title
         line += "%s,"%"VSP"
+        line += "%s,"%"VSP_score"
+        
+        line += "%s,"%an_midD_title
+        line += "%s,"%"hard_acc_p"
+        line += "%s,"%"hard_brake_p"
+
+        line += "%s_%s,"%(an_midD_title,"score")
+        line += "%s,"%"hard_acc_score"
+        line += "%s,"%"hard_brake_score"
+
         outputfile.write(line+ "\n")
         
         
@@ -145,8 +179,18 @@ class Datas:
                     
                 line += "%f,"%self.cars[ca].trips[tr].acc_var.mean
                 line += "%f,"%self.cars[ca].trips[tr].acc_var.var
-                line += "%f,"%self.cars[ca].trips[tr].acc_midDist.midDistPr
                 line += "%f,"%self.cars[ca].trips[tr].vspMean
+                line += "%f,"%self.cars[ca].trips[tr].score.vsp
+                
+                line += "%f,"%self.cars[ca].trips[tr].acc_midDist.midDistPr
+                line += "%f,"%self.cars[ca].trips[tr].acc.plusEdge
+                line += "%f,"%self.cars[ca].trips[tr].acc.minusEdge
+                
+                line += "%f,"%self.cars[ca].trips[tr].score.acc_midDist
+                line += "%f,"%self.cars[ca].trips[tr].score.acc_hardacc
+                line += "%f,"%self.cars[ca].trips[tr].score.acc_hardbrake
+
+                
                 outputfile.write(line+ "\n")
    
         outputfile.close()
@@ -173,6 +217,8 @@ class Datas:
         line += "%s,"%"mean"
         line += "%s,"%"var"
         line += "%s,"%an_midD_title
+        line += "%s_%s,"%(an_midD_title,"score")
+        
         outputfile.write(line+ "\n")
         
         
@@ -195,9 +241,32 @@ class Datas:
                 line += "%f,"%self.cars[ca].trips[tr].accacc_var.mean
                 line += "%f,"%self.cars[ca].trips[tr].accacc_var.var
                 line += "%f,"%self.cars[ca].trips[tr].accacc_midDist.midDistPr
+                line += "%f,"%self.cars[ca].trips[tr].score.accacc_midDist
                 outputfile.write(line+ "\n")
    
-        outputfile.close()   
+        outputfile.close()  
+         
+   
+
+class Score:
+    def __init__(self):
+        self.acc_midDist = 0
+        self.accacc_midDist = 0
+        self.acc_hardacc = 0
+        self.acc_hardbrake = 0
+        self.heading_midDist = 0
+        self.idle = 0
+        self.vsp = 0
+        
+    def show(self):
+        print ("acc_midDist %f"%self.acc_midDist)
+        print ("accacc_midDist %f"%self.accacc_midDist)
+        print ("acc_hardacc %f"%self.acc_hardacc)
+        print ("acc_hardbrake %f"%self.acc_hardbrake)
+        print ("heading_midDist %f"%self.heading_midDist)
+        print ("idle %f"%self.idle)
+        print ("vsp %f"%self.vsp)
+
 class Trip:
     def __init__(self, carId, tripId, f):
         
@@ -212,6 +281,9 @@ class Trip:
         self.idleCountMax = 0
         self.vspMean = 0
         
+
+        self.score = Score()
+
     def show(self):
         print(50*"=")
         print(50*"=")
@@ -227,56 +299,56 @@ class Trip:
         
     def analyse(self):
         
-        f = CSVFile(self.tripInfo.file) #per trip file
-        acclist, accacclist, headingList, vspList = f.readData()
-
+        (starttime, endtime,idleCount,acc,acc_m,acc_var,accacc,accacc_m,accacc_var,heading,vspMean) = processTripFile(self.tripInfo.file)
+        
         # trip
-        self.tripInfo.starttime = f.starttime
-        self.tripInfo.endtime = f.endtime
-        
-        #idle counter max
-        self.idleCountMax = f.idleCount
-        
-        #trip acc
-        acc = DistributeMethod()
-        #acc.an_seg_size = 0.5
-        acc.analyse(acclist)
+        self.tripInfo.starttime = starttime
+        self.tripInfo.endtime = endtime
+        self.idleCountMax = idleCount
         self.acc = acc
-        
-        #trip acc_midDist
-        m = MidDistributeMethod()
-        m.analyse(acclist)
-        self.acc_midDist = m
-        
-        var = VarianceMethod()
-        var.analyse(acclist)
-        self.acc_var = var
-        
-        #trip accacc
-        accacc = DistributeMethod()
-        accacc.analyse(accacclist)
+        self.acc_midDist = acc_m
+        self.acc_var = acc_var
         self.accacc = accacc   
-        
-        
-        #trip acc_midDist
-        accacc_m = MidDistributeMethod()
-        accacc_m.analyse(accacclist)
         self.accacc_midDist = accacc_m
-        
-        accacc_var = VarianceMethod()
-        accacc_var.analyse(accacclist)
         self.accacc_var = accacc_var
-        
-        #heading
-        heading = MidDistributeMethod()
-        heading.n = 5
-        heading.analyse(headingList)
         self.heading_midDist = heading
+        self.vspMean = vspMean
         
-        
-        #vsp
-        self.vspMean = np.mean(vspList)
-        
+def processTripFile(file):
+    f = CSVFile(file)
+    acclist, accacclist, headingList, vspList = f.readData()
+    
+    #trip acc
+    acc = DistributeMethod()
+    #acc.an_seg_size = 0.5
+    acc.analyse(acclist)
+
+    #trip acc_midDist
+    acc_m = MidDistributeMethod()
+    acc_m.analyse(acclist)
+    
+    acc_var = VarianceMethod()
+    acc_var.analyse(acclist)
+    
+    #trip accacc
+    accacc = DistributeMethod()
+    accacc.analyse(accacclist)   
+     
+    #trip acc_midDist
+    accacc_m = MidDistributeMethod()
+    accacc_m.analyse(accacclist)  
+            
+    accacc_var = VarianceMethod()
+    accacc_var.analyse(accacclist)  
+    
+    #heading
+    heading = MidDistributeMethod()
+    heading.n = 5
+    heading.analyse(headingList)
+    
+    vspMean = np.mean(vspList)
+    
+    return (f.starttime, f.endtime, f.idleCount,acc,acc_m,acc_var,accacc,accacc_m,accacc_var,heading,vspMean)
         
 class Car:
     def __init__(self, carId, file_dict):
@@ -293,13 +365,109 @@ class Car:
 
     def analyse(self):
         print("in analysing "+ self.carId)
+        
+        acc_midDist_List = MedianMethod()
+        accacc_midDist_List = MedianMethod()
+        
+        hardacc_list = MedianMethod()
+        hardbrake_list = MedianMethod()
+        heading_List = MedianMethod()
+        
+        vsp_List = MedianMethod()
+        idle_List = MedianMethod()
+        
         for i in self.trips:
             self.trips[i].analyse()
+            #continue
+            
+            acc_midDist_List        .append_forMedian(self.trips[i].acc_midDist.midDistPr)
+            accacc_midDist_List     .append_forMedian(self.trips[i].accacc_midDist.midDistPr)
+            
+            hardacc_list            .append_forMedian(self.trips[i].acc.plusEdge)
+            hardbrake_list          .append_forMedian(self.trips[i].acc.minusEdge)
+            heading_List            .append_forMedian(self.trips[i].heading_midDist.midDistPr)
+            vsp_List                .append_forMedian(self.trips[i].vspMean)
+            idle_List               .append_forMedian(self.trips[i].idleCountMax)
+        #return    
+        # calculate median
+        acc_midDist_List.calculate_median()
+        hardacc_list.calculate_median()
+        hardbrake_list.calculate_median()
+        accacc_midDist_List.calculate_median()
+        heading_List.calculate_median()
+        vsp_List.calculate_median()
+        idle_List.calculate_median()
+        
+        #median for dist to median
+        for i in self.trips:
+            acc_midDist_List    .append_forDistMedian(self.trips[i].acc_midDist.midDistPr)
+            accacc_midDist_List .append_forDistMedian(self.trips[i].accacc_midDist.midDistPr)
+            hardacc_list        .append_forDistMedian(self.trips[i].acc.plusEdge)
+            hardbrake_list      .append_forDistMedian(self.trips[i].acc.minusEdge)
+            heading_List        .append_forDistMedian(self.trips[i].heading_midDist.midDistPr)
+            vsp_List            .append_forDistMedian(self.trips[i].vspMean)
+            idle_List           .append_forDistMedian(self.trips[i].idleCountMax)
+            
+        # calculate median
+        acc_midDist_List.calculate_distMedian()
+        hardacc_list.calculate_distMedian()
+        hardbrake_list.calculate_distMedian()
+        accacc_midDist_List.calculate_distMedian()
+        heading_List.calculate_distMedian()
+        vsp_List.calculate_distMedian()
+        idle_List.calculate_distMedian()
+        
+        for i in self.trips:
+            self.trips[i].score.acc_midDist    = acc_midDist_List   .scoreEvaluate(self.trips[i].acc_midDist.midDistPr)
+            self.trips[i].score.accacc_midDist = accacc_midDist_List.scoreEvaluate(self.trips[i].accacc_midDist.midDistPr)
+            self.trips[i].score.acc_hardacc   = hardacc_list        .scoreEvaluate(self.trips[i].acc.plusEdge)
+            self.trips[i].score.acc_hardbrake = hardbrake_list      .scoreEvaluate(self.trips[i].acc.minusEdge)
+            self.trips[i].score.heading_midDist = heading_List      .scoreEvaluate(self.trips[i].heading_midDist.midDistPr)
+            self.trips[i].score.vsp             = vsp_List          .scoreEvaluate(self.trips[i].vspMean)
+            self.trips[i].score.idle            = idle_List         .scoreEvaluate(self.trips[i].idleCountMax)
+
+            print (50*"!!")
+            self.trips[i].score.show()
+
+class MedianMethod:
+    def __init__(self):
+        self.list = []
+        self.distlist = []
+        self.median = None
+        self.dist_median = None
+        
+    def append_forMedian(self, data):
+        self.list.append(data)    
+        
+    def calculate_median(self):
+        self.median = np.median(self.list)   
+        #self.show()
+        
+    def calculate_distMedian(self):
+        self.dist_median = np.median(self.distlist)   
+        #self.show()    
+        
+    def append_forDistMedian(self, data):
+        self.distlist.append(abs(data - self.median))
+
+    def scoreEvaluate(self, data):
+
+        if (abs(data - self.median) + self.dist_median) == 0:
+            return -1
+        score = self.dist_median / (abs(data - self.median) + self.dist_median)
+
+        print ("input %f md %f dmd %f score %f"%(data,self.median,self.dist_median,score))
+        return score
+    
+    def show(self):
+        print ("median %f"%self.median)
+        print ("dist median %f"%self.median)
             
 def isValidData(dat):
     a = "%f"%dat
-    return (a != "nan")
+    return (a != "nan" and a!= "")
 
+    
 class CSVFile: 
     def __init__(self, f):
         self.starttime = 0
@@ -374,6 +542,11 @@ class CSVFile:
             #==================== speed =======================
             speed1 = df.loc[i][self.speedColumn] #speed
             speed2 = df.loc[i + 1][self.speedColumn]  
+            
+            if speed1 == 655.35:
+                speed1 = 0
+            if speed2 == 655.35:
+                speed2 = 0
             # ============= heading ==================
             
             heading1 = df.loc[i][self.headingColumn] 
@@ -396,7 +569,8 @@ class CSVFile:
                     if t2 - last_acc_ts == 1000:
                         acc_accelerate.append (acc - last_acc) 
                     else :
-                        print "time diff error - accacc %d @ %d" % (t2 - last_acc_ts, last_acc_ts)
+                        pass
+                        #print "time diff error - accacc %d @ %d" % (t2 - last_acc_ts, last_acc_ts)
                     last_acc_ts = t2
                     last_acc = acc
                     
@@ -409,7 +583,8 @@ class CSVFile:
                             dif_heading.append(heading_acc)  
                     
             else:
-                print ("time diff error - acc %d @ %d" % (t2 - t1,  t1))
+                pass
+                #print ("time diff error - acc %d @ %d" % (t2 - t1,  t1))
                 
             
             if self.ifIdleTime:
@@ -426,14 +601,14 @@ class CSVFile:
                         idleStartTs  = t1
                     else: # if started
                         if t1 - last_idle_ts > 5000: #5 second
-                            print ("stop  at %d >5s" % t1)
+                            #print ("stop  at %d >5s" % t1)
                             self.calMaxIdleCounter(last_idle_ts - idleStartTs)
                             idleStartTs = 0
                 else: # end of idle
                     if idleStartTs != 0: ## if started
                         if t1 - last_idle_ts > 5000: #5 second
                             stopTimeTs = last_idle_ts
-                            print ("stop  at rpm=0 or speed !=0, but at %d diff >5s" % t1)
+                            #print ("stop  at rpm=0 or speed !=0, but at %d diff >5s" % t1)
                         else:
                             stopTimeTs = t1
                         #print ("stop  at %d" % t1)
@@ -462,7 +637,8 @@ class TripInfo:
         
 class VarianceMethod:
     def __init__(self):
-        pass
+        self.mean = 0
+        self.var = 0
     def analyse(self, data_list):
         if len(data_list) == 0 :
             print "empty!!!!!!!!"
@@ -505,6 +681,8 @@ class DistributeMethod:
         self.an_segs_title = dict()  # {seg_id : seg_title}
         self.total_data = 0
 
+        self.plusEdge = 0
+        self.minusEdge = 0 
         
     def analyse(self, data_list):
         
@@ -583,6 +761,11 @@ class DistributeMethod:
         if self.total_data != 0: 
             self.an_segs_persentage[plus_side_key] = self.an_segs[plus_side_key]/self.total_data
             self.an_segs_persentage[mins_side_key] = self.an_segs[mins_side_key]/self.total_data
+            
+        # calcualte edges:
+        for i in range(4):
+            self.plusEdge +=  self.an_segs_persentage[plus_side_key - i]
+            self.minusEdge += self.an_segs_persentage[mins_side_key + i]
         
     def show(self):
         

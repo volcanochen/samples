@@ -39,10 +39,10 @@ class DatasTest(unittest.TestCase):
         assert a.mean == 2
         assert a.var == 2/float(3)
         
-    #@unittest.skip("demonstrating skipping")  
+    @unittest.skip("demonstrating skipping")  
     def test_NOT_A_TEST(self):
         a= Datas()
-        folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\VF3CU9HP0EY156880"
+        folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\054"
 
         a.initFromFolder(folder)
         a.analyseAll()
@@ -56,16 +56,39 @@ class DatasTest(unittest.TestCase):
     def test_Datas_mainflow(self):
         a= Datas()
         
-        folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\VF3CU9HP0EY156880TEST"
+        folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\TEST"
         a.initFromFolder(folder)
         a.analyseAll()
-        a.show()
-        #a.cvsExportIdleMax      (r"%s\total.export.table_idle.csv"%folder)
+        #a.show()
+        a.cvsExportIdleMax      (r"%s\total.export.table_idle.csv"%folder)
         a.cvsExportAcc          (r"%s\total.export.table_acc.csv"%folder)
-        #a.cvsExportAccacc       (r"%s\total.export.table_accacc.csv"%folder)
-        #a.cvsExportHeading      (r"%s\total.export.table_heading.csv"%folder)
-
-
+        a.cvsExportAccacc       (r"%s\total.export.table_accacc.csv"%folder)
+        a.cvsExportHeading      (r"%s\total.export.table_heading.csv"%folder)
+    
+    #@unittest.skip("demonstrating skipping")      
+    def test_parallel(self):
+        a= Datas()
+        
+        folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\TEST"
+        a.initFromFolder(folder)
+        a.analyseAll_parallel()
+        
+        # 1. pool 4 19.611s
+        # 1. pool 3 18.781s
+        # 1. pool 2 19.070s
+        # 2. pool 10  54.776s
+        # 2. pool 5   56.326s
+        
+    @unittest.skip("demonstrating skipping")      
+    def test_non_parallel(self):
+        a= Datas()
+        
+        folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\880"
+        a.initFromFolder(folder)
+        a.analyseAll()
+        
+        # 1. pool non 24.778s
+        # 2. pool non 117.462s
 
 def suite():
     suite = unittest.TestSuite()
