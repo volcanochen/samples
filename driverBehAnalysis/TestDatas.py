@@ -52,11 +52,23 @@ class DatasTest(unittest.TestCase):
         a.cvsExportAccacc       (r"%s\total.export.table_accacc.csv"%folder)
         a.cvsExportHeading      (r"%s\total.export.table_heading.csv"%folder)
     
-    @unittest.skip("demonstrating skipping")      
+    #@unittest.skip("demonstrating skipping")      
     def test_Datas_mainflow(self):
         a= Datas()
         
-        folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\TEST"
+        folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\shareData"
+        a.initFromFolder(folder)
+        a.analyseAll()
+        #a.show()
+        a.cvsExportIdleMax      (r"%s\total.export.table_idle.csv"%folder)
+        a.cvsExportAcc          (r"%s\total.export.table_acc.csv"%folder)
+        a.cvsExportAccacc       (r"%s\total.export.table_accacc.csv"%folder)
+        a.cvsExportHeading      (r"%s\total.export.table_heading.csv"%folder)
+    @unittest.skip("demonstrating skipping")      
+    def test_Datas_mainflow2(self):
+        a= Datas()
+        
+        folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\cars - part 6"
         a.initFromFolder(folder)
         a.analyseAll()
         #a.show()
@@ -65,7 +77,7 @@ class DatasTest(unittest.TestCase):
         a.cvsExportAccacc       (r"%s\total.export.table_accacc.csv"%folder)
         a.cvsExportHeading      (r"%s\total.export.table_heading.csv"%folder)
     
-    #@unittest.skip("demonstrating skipping")      
+    @unittest.skip("demonstrating skipping")      
     def test_parallel(self):
         a= Datas()
         

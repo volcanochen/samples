@@ -3,8 +3,10 @@ import re
 import csv
 import pandas as pd
 import numpy as np
-from compiler.ast import Pass
 from multiprocessing import Pool
+from numpy.core.numeric import nan
+import time
+
 
 def sortedDictValue(adict):
     keys = adict.keys()
@@ -60,20 +62,39 @@ class Datas:
 
         for carId in self.cars:
             for tripId in self.cars[carId].trips:
-                (t1, t2 ,e,d,c,t,d,t,u,n,o) = result.pop()
-                print t1, t2
+                
+                (valid, starttime, endtime, idleCount,acc,acc_m,acc_var,accacc,accacc_m,accacc_var,heading,vspMean) = result.pop()
+                self.cars[carId].trips[tripId].tripInfo.starttime = starttime
+                self.cars[carId].trips[tripId].tripInfo.endtime = endtime
+                if not valid:
+                    print("set %s %s to invalid"%(self.cars[carId].trips[tripId].tripInfo.carId, self.cars[carId].trips[tripId].tripInfo.tripId))
+                    self.cars[carId].trips[tripId].valid = False
+                    continue
+                self.cars[carId].trips[tripId].idleCountMax = idleCount
+                self.cars[carId].trips[tripId].acc = acc
+                self.cars[carId].trips[tripId].acc_midDist =acc_m
+                self.cars[carId].trips[tripId].acc_var = acc_var
+                self.cars[carId].trips[tripId].accacc = accacc
+                self.cars[carId].trips[tripId].accacc_midDist = accacc_m
+                self.cars[carId].trips[tripId].accacc_var = accacc_var
+                self.cars[carId].trips[tripId].heading = heading
+                self.cars[carId].trips[tripId].vspMean = vspMean
         
-        
+        carData = []
+        for carId in self.cars:
+            carData.append(self.cars[carId])
+        p.map(processCars, carData)
 
     def analyseAll(self):
         for carId in self.cars:
             self.cars[carId].analyse()
 
     def cvsExportIdleMax(self, outfile):
+        print("@cvsExportIdleMax ")
         outputfile = open(outfile, 'wb')
         
         line = ''
-        idDataTitle = "%s,%s,%s,%s" %("cardId", "tripId","startTime", "endTime")
+        idDataTitle = "%s,%s,%s,%s" %("carId", "tripId","startTime", "endTime")
         line += "%s,"%idDataTitle
         line += "%s,"%"idleMax"
         line += "%s,"%"idleMax_score"
@@ -82,13 +103,16 @@ class Datas:
         
         for ca  in self.cars:  #{carid : Datas_car}
             for tr in self.cars[ca].trips: # {tripid: Data_trip}
-                cardid = ca
+                carid = ca
                 tripid = tr
+                if self.cars[ca].trips[tr].valid != True:
+                    print("---- skip invalid trip %s - %s "%(carid,tripid))
+                    continue
                 starttime = self.cars[ca].trips[tr].tripInfo.starttime
                 endtime = self.cars[ca].trips[tr].tripInfo.endtime
   
                 line = ""
-                line += "%s,%s,%s,%s," %(cardid, tripid,starttime, endtime)
+                line += "%s,%s,%s,%s," %(carid, tripid,starttime, endtime)
 
                 line += "%f,"%self.cars[ca].trips[tr].idleCountMax
                 line += "%f,"%self.cars[ca].trips[tr].score.idle
@@ -97,10 +121,11 @@ class Datas:
    
         outputfile.close()
     def cvsExportHeading(self, outfile):
+        print("@cvsExportHeading ")
         outputfile = open(outfile, 'wb')
         
         line = ''
-        idDataTitle = "%s,%s,%s,%s" %("cardId", "tripId","startTime", "endTime")
+        idDataTitle = "%s,%s,%s,%s" %("carId", "tripId","startTime", "endTime")
         line += "%s,"%idDataTitle
         line += "%s,"%"headingPercentage"
         line += "%s_%s,"%("headingPercentage","score")
@@ -112,13 +137,16 @@ class Datas:
         
         for ca  in self.cars:  #{carid : Datas_car}
             for tr in self.cars[ca].trips: # {tripid: Data_trip}
-                cardid = ca
+                carid = ca
                 tripid = tr
+                if self.cars[ca].trips[tr].valid != True:
+                    print("---- skip invalid trip %s - %s "%(carid,tripid))
+                    continue
                 starttime = self.cars[ca].trips[tr].tripInfo.starttime
                 endtime = self.cars[ca].trips[tr].tripInfo.endtime
-  
+                
                 line = ""
-                line += "%s,%s,%s,%s," %(cardid, tripid,starttime, endtime)
+                line += "%s,%s,%s,%s," %(carid, tripid,starttime, endtime)
 
                 line += "%f,"%self.cars[ca].trips[tr].heading_midDist.midDistPr
                 line += "%f,"%self.cars[ca].trips[tr].score.heading_midDist
@@ -126,19 +154,24 @@ class Datas:
    
         outputfile.close()  
     def cvsExportAcc(self, outfile):
+        print("@cvsExportAcc ")
         outputfile = open(outfile, 'wb')
         
         an_segs_title = {}
         for i  in self.cars:  #{carid : Datas_car}
             for j in self.cars[i].trips: # {tripid: Data_trip}
-                an_segs_title = self.cars[i].trips[j].acc.an_segs_title
-                an_midD_title = self.cars[i].trips[j].acc_midDist.title
-                break;
+                if self.cars[i].trips[j].valid != True:
+                    #print ("invalid")
+                    continue
+                if self.cars[i].trips[j].acc != None:
+                    an_segs_title = self.cars[i].trips[j].acc.an_segs_title
+                    an_midD_title = self.cars[i].trips[j].acc_midDist.title
+                    break;
 
         #print an_segs_title
         
         line = ''
-        idDataTitle = "%s,%s,%s,%s" %("cardId", "tripId","startTime", "endTime")
+        idDataTitle = "%s,%s,%s,%s" %("carId", "tripId","startTime", "endTime")
         line += "%s,"%idDataTitle
         for i in sortedDictValue(an_segs_title):
             line += "%s,"%i
@@ -163,15 +196,19 @@ class Datas:
         
         for ca  in self.cars:  #{carid : Datas_car}
             for tr in self.cars[ca].trips: # {tripid: Data_trip}
-                cardid = ca
+                carid = ca
                 tripid = tr
+                if self.cars[ca].trips[tr].valid != True:
+                    print("---- skip invalid trip %s - %s "%(carid,tripid))
+                    continue
+
                 starttime = self.cars[ca].trips[tr].tripInfo.starttime
                 endtime = self.cars[ca].trips[tr].tripInfo.endtime
                 
                 tripData1 = self.cars[ca].trips[tr].acc.an_segs
                 tripData2 = self.cars[ca].trips[tr].acc.an_segs_persentage
                 line = ""
-                line += "%s,%s,%s,%s," %(cardid, tripid,starttime, endtime)
+                line += "%s,%s,%s,%s," %(carid, tripid,starttime, endtime)
                 for i in sortedDictValue(tripData1):
                     line += "%s,"%i
                 for i in sortedDictValue(tripData2):
@@ -195,19 +232,22 @@ class Datas:
    
         outputfile.close()
     def cvsExportAccacc(self, outfile):
+        print("@cvsExportAccacc ")
         outputfile = open(outfile, 'wb')
         
         an_segs_title = {}
+        an_midD_title = ""
         for i  in self.cars:  #{carid : Datas_car}
             for j in self.cars[i].trips: # {tripid: Data_trip}
-                an_segs_title = self.cars[i].trips[j].accacc.an_segs_title
-                an_midD_title = self.cars[i].trips[j].accacc_midDist.title
-                break;
+                if self.cars[i].trips[j].accacc != None:
+                    an_segs_title = self.cars[i].trips[j].accacc.an_segs_title
+                    an_midD_title = self.cars[i].trips[j].accacc_midDist.title
+                    break;
 
         #print an_segs_title
         
         line = ''
-        idDataTitle = "%s,%s,%s,%s" %("cardId", "tripId","startTime", "endTime")
+        idDataTitle = "%s,%s,%s,%s" %("carId", "tripId","startTime", "endTime")
         line += "%s,"%idDataTitle
         for i in sortedDictValue(an_segs_title):
             line += "%s,"%i
@@ -224,15 +264,20 @@ class Datas:
         
         for ca  in self.cars:  #{carid : Datas_car}
             for tr in self.cars[ca].trips: # {tripid: Data_trip}
-                cardid = ca
+                carid = ca
                 tripid = tr
+                
+                if self.cars[ca].trips[tr].valid != True:
+                    print("---- skip invalid trip %s - %s "%(carid,tripid))
+                    continue
+                
                 starttime = self.cars[ca].trips[tr].tripInfo.starttime
                 endtime = self.cars[ca].trips[tr].tripInfo.endtime
                 
                 tripData1 = self.cars[ca].trips[tr].accacc.an_segs
                 tripData2 = self.cars[ca].trips[tr].accacc.an_segs_persentage
                 line = ""
-                line += "%s,%s,%s,%s," %(cardid, tripid,starttime, endtime)
+                line += "%s,%s,%s,%s," %(carid, tripid,starttime, endtime)
                 for i in sortedDictValue(tripData1):
                     line += "%s,"%i
                 for i in sortedDictValue(tripData2):
@@ -281,6 +326,7 @@ class Trip:
         self.idleCountMax = 0
         self.vspMean = 0
         
+        self.valid = True
 
         self.score = Score()
 
@@ -299,11 +345,17 @@ class Trip:
         
     def analyse(self):
         
-        (starttime, endtime,idleCount,acc,acc_m,acc_var,accacc,accacc_m,accacc_var,heading,vspMean) = processTripFile(self.tripInfo.file)
-        
+        (valid, starttime, endtime,idleCount,acc,acc_m,acc_var,accacc,accacc_m,accacc_var,heading,vspMean) = processTripFile(self.tripInfo.file)
+
         # trip
         self.tripInfo.starttime = starttime
         self.tripInfo.endtime = endtime
+        
+        if not valid:
+            print("set %s %s to invalid"%(self.tripInfo.carId,self.tripInfo.tripId))
+            self.valid = False
+            return
+        
         self.idleCountMax = idleCount
         self.acc = acc
         self.acc_midDist = acc_m
@@ -314,10 +366,18 @@ class Trip:
         self.heading_midDist = heading
         self.vspMean = vspMean
         
+
+        
 def processTripFile(file):
+    
+    valid = True
     f = CSVFile(file)
     acclist, accacclist, headingList, vspList = f.readData()
     
+    if len(acclist) == 0:
+        valid = False
+        return (valid, f.starttime, f.endtime, None,None,None,None,None,None,None,None,None)
+
     #trip acc
     acc = DistributeMethod()
     #acc.an_seg_size = 0.5
@@ -346,10 +406,87 @@ def processTripFile(file):
     heading.n = 5
     heading.analyse(headingList)
     
-    vspMean = np.mean(vspList)
+    vspMean = 0
+    if len(vspList) != 0:
+        vspMean = np.mean(vspList)
     
-    return (f.starttime, f.endtime, f.idleCount,acc,acc_m,acc_var,accacc,accacc_m,accacc_var,heading,vspMean)
+    return (valid, f.starttime, f.endtime, f.idleCount,acc,acc_m,acc_var,accacc,accacc_m,accacc_var,heading,vspMean)
+
+
+def processCars(carsData):
+    
+    acc_midDist_List = MedianMethod()
+    accacc_midDist_List = MedianMethod()
+    
+    hardacc_list = MedianMethod()
+    hardbrake_list = MedianMethod()
+    heading_List = MedianMethod()
+    
+    vsp_List = MedianMethod()
+    idle_List = MedianMethod()
+    for i in carsData.trips:
         
+        if carsData.trips[i].valid != True:
+            print("!!!@analyse #1 - invalid trip %s - %s!!!"%(carsData.trips[i].tripInfo.carId,carsData.trips[i].tripInfo.tripId))
+            continue
+        
+        acc_midDist_List        .append_forMedian(carsData.trips[i].acc_midDist.midDistPr)
+        accacc_midDist_List     .append_forMedian(carsData.trips[i].accacc_midDist.midDistPr)
+        
+        hardacc_list            .append_forMedian(carsData.trips[i].acc.plusEdge)
+        hardbrake_list          .append_forMedian(carsData.trips[i].acc.minusEdge)
+        heading_List            .append_forMedian(carsData.trips[i].heading_midDist.midDistPr)
+        vsp_List                .append_forMedian(carsData.trips[i].vspMean)
+        idle_List               .append_forMedian(carsData.trips[i].idleCountMax)
+    # calculate median
+    acc_midDist_List.calculate_median()
+    hardacc_list.calculate_median()
+    hardbrake_list.calculate_median()
+    accacc_midDist_List.calculate_median()
+    heading_List.calculate_median()
+    vsp_List.calculate_median()
+    idle_List.calculate_median()
+    
+    #median for dist to median
+    for i in carsData.trips:
+        
+        if carsData.trips[i].valid != True:
+            print("!!!@analyse #2 - invalid trip %s - %s!!!"%(carsData.trips[i].tripInfo.carId,carsData.trips[i].tripInfo.tripId))
+            continue
+        
+        acc_midDist_List    .append_forDistMedian(carsData.trips[i].acc_midDist.midDistPr)
+        accacc_midDist_List .append_forDistMedian(carsData.trips[i].accacc_midDist.midDistPr)
+        hardacc_list        .append_forDistMedian(carsData.trips[i].acc.plusEdge)
+        hardbrake_list      .append_forDistMedian(carsData.trips[i].acc.minusEdge)
+        heading_List        .append_forDistMedian(carsData.trips[i].heading_midDist.midDistPr)
+        vsp_List            .append_forDistMedian(carsData.trips[i].vspMean)
+        idle_List           .append_forDistMedian(carsData.trips[i].idleCountMax)
+        
+    # calculate median
+    acc_midDist_List.calculate_distMedian()
+    hardacc_list.calculate_distMedian()
+    hardbrake_list.calculate_distMedian()
+    accacc_midDist_List.calculate_distMedian()
+    heading_List.calculate_distMedian()
+    vsp_List.calculate_distMedian()
+    idle_List.calculate_distMedian()
+    
+    for i in carsData.trips:
+        
+        if carsData.trips[i].valid != True:
+            print("!!!@analyse #3 - invalid trip %s - %s!!!"%(carsData.trips[i].tripInfo.carId,carsData.trips[i].tripInfo.tripId))
+            continue
+        
+        carsData.trips[i].score.acc_midDist    = acc_midDist_List   .scoreEvaluate(carsData.trips[i].acc_midDist.midDistPr)
+        carsData.trips[i].score.accacc_midDist = accacc_midDist_List.scoreEvaluate(carsData.trips[i].accacc_midDist.midDistPr)
+        carsData.trips[i].score.acc_hardacc   = hardacc_list        .scoreEvaluate(carsData.trips[i].acc.plusEdge)
+        carsData.trips[i].score.acc_hardbrake = hardbrake_list      .scoreEvaluate(carsData.trips[i].acc.minusEdge)
+        carsData.trips[i].score.heading_midDist = heading_List      .scoreEvaluate(carsData.trips[i].heading_midDist.midDistPr)
+        carsData.trips[i].score.vsp             = vsp_List          .scoreEvaluate(carsData.trips[i].vspMean)
+        carsData.trips[i].score.idle            = idle_List         .scoreEvaluate(carsData.trips[i].idleCountMax)
+
+
+    return     
 class Car:
     def __init__(self, carId, file_dict):
         
@@ -362,9 +499,9 @@ class Car:
 
         for i in self.trips:
             self.trips[i].show()  
-
+    
     def analyse(self):
-        print("in analysing "+ self.carId)
+        print("@Car analyse "+ self.carId)
         
         acc_midDist_List = MedianMethod()
         accacc_midDist_List = MedianMethod()
@@ -379,6 +516,10 @@ class Car:
         for i in self.trips:
             self.trips[i].analyse()
             #continue
+            
+            if self.trips[i].valid != True:
+                print("!!!@analyse #1 - invalid trip %s - %s!!!"%(self.trips[i].tripInfo.carId,self.trips[i].tripInfo.tripId))
+                continue
             
             acc_midDist_List        .append_forMedian(self.trips[i].acc_midDist.midDistPr)
             accacc_midDist_List     .append_forMedian(self.trips[i].accacc_midDist.midDistPr)
@@ -400,6 +541,11 @@ class Car:
         
         #median for dist to median
         for i in self.trips:
+            
+            if self.trips[i].valid != True:
+                print("!!!@analyse #2 - invalid trip %s - %s!!!"%(self.trips[i].tripInfo.carId,self.trips[i].tripInfo.tripId))
+                continue
+            
             acc_midDist_List    .append_forDistMedian(self.trips[i].acc_midDist.midDistPr)
             accacc_midDist_List .append_forDistMedian(self.trips[i].accacc_midDist.midDistPr)
             hardacc_list        .append_forDistMedian(self.trips[i].acc.plusEdge)
@@ -418,6 +564,11 @@ class Car:
         idle_List.calculate_distMedian()
         
         for i in self.trips:
+            
+            if self.trips[i].valid != True:
+                print("!!!@analyse #3 - invalid trip %s - %s!!!"%(self.trips[i].tripInfo.carId,self.trips[i].tripInfo.tripId))
+                continue
+            
             self.trips[i].score.acc_midDist    = acc_midDist_List   .scoreEvaluate(self.trips[i].acc_midDist.midDistPr)
             self.trips[i].score.accacc_midDist = accacc_midDist_List.scoreEvaluate(self.trips[i].accacc_midDist.midDistPr)
             self.trips[i].score.acc_hardacc   = hardacc_list        .scoreEvaluate(self.trips[i].acc.plusEdge)
@@ -426,33 +577,40 @@ class Car:
             self.trips[i].score.vsp             = vsp_List          .scoreEvaluate(self.trips[i].vspMean)
             self.trips[i].score.idle            = idle_List         .scoreEvaluate(self.trips[i].idleCountMax)
 
-            print (50*"!!")
+            print (25*"!" + "score result per Car" + 17*"!" )
             self.trips[i].score.show()
+            print (60*"!")
 
 class MedianMethod:
     def __init__(self):
         self.list = []
         self.distlist = []
-        self.median = None
-        self.dist_median = None
+        self.median = -1
+        self.dist_median = -1
+        
         
     def append_forMedian(self, data):
         self.list.append(data)    
         
     def calculate_median(self):
-        self.median = np.median(self.list)   
+        if len(self.list) != 0:
+            self.median = np.median(self.list)   
         #self.show()
         
     def calculate_distMedian(self):
-        self.dist_median = np.median(self.distlist)   
+        if len(self.distlist) != 0:
+            self.dist_median = np.median(self.distlist)   
         #self.show()    
         
     def append_forDistMedian(self, data):
         self.distlist.append(abs(data - self.median))
 
     def scoreEvaluate(self, data):
-
+        if len(self.distlist) == 0 or len(self.distlist) == 0:
+            print("@MedianMethod scoreEvaluate empty list")
+            return -1
         if (abs(data - self.median) + self.dist_median) == 0:
+            print("@MedianMethod scoreEvaluate all zero")
             return -1
         score = self.dist_median / (abs(data - self.median) + self.dist_median)
 
@@ -485,7 +643,7 @@ class CSVFile:
         if ma > self.endtime:
             self.endtime = ma
     def calMaxIdleCounter(self, ma):
-        print ("record idle time: %d" %ma)
+        #print ("record idle time: %d" %ma)
         if ma > self.idleCount:
             self.idleCount = ma
             
@@ -622,8 +780,8 @@ class CSVFile:
         return accelerate, acc_accelerate, dif_heading, vsplist
     
 class TripInfo:
-    def __init__(self, cardId , trip, f):
-        self.carId = cardId
+    def __init__(self, carid , trip, f):
+        self.carId = carid
         self.tripId = trip
         self.file = f
         self.starttime = 0
@@ -794,3 +952,19 @@ class DistributeMethod:
 
 
 
+if __name__ == '__main__':
+    a= Datas()
+    
+    ts = time.time()
+    
+    folder = r"C:\+work\++ 2017 ++\NGCVC\analysis\TEST"
+    a.initFromFolder(folder)
+    a.analyseAll()
+    #a.show()
+    a.cvsExportIdleMax      (r"%s\total.export.table_idle.csv"%folder)
+    a.cvsExportAcc          (r"%s\total.export.table_acc.csv"%folder)
+    a.cvsExportAccacc       (r"%s\total.export.table_accacc.csv"%folder)
+    a.cvsExportHeading      (r"%s\total.export.table_heading.csv"%folder)
+    
+    span = time.time() - ts
+    print "time spend ", span
