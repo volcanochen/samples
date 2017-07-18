@@ -13,13 +13,13 @@ import sample.thread.multithread.CommonResourceContainer;
 /**
  * Unit test for simple App.
  */
-public class AppTest extends TestCase {
+public class AppTestSynchronized extends TestCase {
     /**
      * Create the test case
      *
      * @param testName name of the test case
      */
-    public AppTest(String testName) {
+    public AppTestSynchronized(String testName) {
         super(testName);
     }
 
@@ -27,7 +27,7 @@ public class AppTest extends TestCase {
      * @return the suite of tests being tested
      */
     public static Test suite() {
-        return new TestSuite(AppTest.class);
+        return new TestSuite(AppTestSynchronized.class);
     }
 
     /**
@@ -67,6 +67,11 @@ public class AppTest extends TestCase {
     CommonResourceContainer globalController = new CommonResourceContainer(1);
     CommonResourceContainer globalController2 = new CommonResourceContainer(2);
 
+    /***
+     * test usage of java keyword 'synchronized' 
+     * synchronized is an object lock
+     * 
+     */
     public void testThreadSafety() {
 
         List<MyThread> list = new ArrayList<MyThread>();
