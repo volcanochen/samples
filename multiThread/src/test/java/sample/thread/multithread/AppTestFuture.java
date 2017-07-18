@@ -17,9 +17,7 @@ import sample.thread.multithread.basicmodel.Data;
 
 
 
-/**
- * Unit test for simple App.
- */
+
 public class AppTestFuture extends TestCase {
     /***
      * basic future data model

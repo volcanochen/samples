@@ -10,9 +10,6 @@ import junit.framework.TestCase;
 import junit.framework.TestSuite;
 import sample.thread.multithread.CommonResourceContainer;
 
-/**
- * Unit test for simple App.
- */
 public class AppTestSynchronized extends TestCase {
     /**
      * Create the test case
