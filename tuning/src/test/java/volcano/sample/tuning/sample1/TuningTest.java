@@ -1,4 +1,4 @@
-package volcano.sample.tuning;
+package volcano.sample.tuning.sample1;
 
 import java.util.ArrayList;
 
